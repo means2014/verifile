@@ -1,0 +1,7 @@
+[project]
+name = "verified-copy"
+version = "0.1.0"
+description = "Utlized pathlib to copy files across filesystems, with retries and per-file verification"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = []
