@@ -43,8 +43,32 @@ def _do_copy(
     return True
 
 
+def _is_excluded(rel_path: Path, patterns: list[str]) -> bool:
+    rel_str = rel_path.as_posix()
+    for pattern in patterns:
+        if pattern.endswith('/'):
+            pattern += '**'
+        if rel_path.match(pattern):
+            return True
+    return False
+
+
 def _log_scandir_err(err: OSError) -> None:
     logger.Exception(err)
+
+
+def _normalize_excludes(exclude: str | Path | list[str | Path] | None) -> list[str]:
+    if exclude is None:
+        return []
+    if isinstance(exclude, (str, Path)):
+        exclude = [exclude]
+    patterns = []
+    for item in exclude:
+        if isinstance(item, Path):
+            patterns.append(item.as_posix())
+        else:
+            patterns.append(str(item()))
+    return patterns
 
 
 def copy_file(
@@ -102,6 +126,7 @@ def copy_file(
     if _src_fingerprint == dest_fingerprint:
         dest.unlink(missing_ok = True)
         tmp.rename(dest)
+        logger.debug(f'File {src} copied to {dest}.')
         return dest
     tmp.unlink()
     if _current_try == max_retries:
@@ -126,7 +151,7 @@ def copy_file(
 def copy_tree(
     src: str | Path,
     dest: str | Path, *,
-    exclude: str | Path | list[str, Path],
+    exclude: str | Path | list[str, Path] | None = None,
     parallel: int = min(32, (os.process_cpu_count() or 1) + 4),
     stop_after_n_failures: int = 1,
     **kwargs
@@ -138,15 +163,18 @@ def copy_tree(
         raise ValueError(err_msg)
     dest.mkdir(exist_ok = True, parents = True)
     failures = 0
+    patterns = _normalize_excludes(exclude)
     for root, dirs, files in Path(src).walk(on_error = _log_scandir_err):
         rel_root = root.relative_to(src)
-        target_root = dest / rel_root
-        target_root.mkdir(exist_ok = True, parents = True)
-        for d in dirs:
-            (target_root / d).mkdir(exist_ok = True)
+        dirs[:] = [d for d in dirs if not _is_excluded(rel_root / d, patterns)]
+
         for name in files:
+            rel_path = rel_root / name
+            if _is_excluded(rel_path, patterns):
+                logger.debug(f'Skipping excluded file {str(rel_path)}')
+                continue
             src_file = root / name
-            dest_file = target_root / name
+            dest_file = dest / rel_path
             res = None
             while res = None and retries < total_max_retries:
                 try:
@@ -157,7 +185,8 @@ def copy_tree(
                         err_msg = f'Failed to copy directory {src} to {dir}'
                         logger.error(err_msg)
                         return None
-        return dest
+    logger.log(f'Directory {src} copied to {dest}')
+    return dest
 
 
 def get_file_fingerprint(
@@ -200,6 +229,19 @@ def move_file(
         return res
     logger.warning(f'Move {src} to {dest} was unsuccessful')
     return None
+
+
+def move_tree(
+    src: str | Path,
+    dest: str | Path, *,
+    exclude: str | Path | list[str, Path],
+    parallel: int = min(32, (os.process_cpu_count() or 1) + 4),
+    stop_after_n_failures: int = 1,
+    **kwargs
+) -> Path | None:
+    res = copy_tree(src, dest, exclude = exclude, parallel = parallel,
+                    stop_after_n_failures = stop_after_n_failures)
+    if isinstance(res, Path) and res.is_dir():
 
 
 def main():
