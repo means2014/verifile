@@ -67,14 +67,14 @@ def _normalize_excludes(exclude: str | Path | list[str | Path] | None) -> list[s
         if isinstance(item, Path):
             patterns.append(item.as_posix())
         else:
-            patterns.append(str(item()))
+            patterns.append(str(item))
     return patterns
 
 
 def copy_file(
     src: str | Path,
     dest: str | Path, *,
-    always_hash_after_failure: bool = True
+    always_hash_after_failure: bool = True,
     existing_mode: ExistingBehavior = ExistingBehavior.REPLACE,
     follow_symlinks: bool = True,
     preserve_metadata: bool = False,
@@ -118,10 +118,12 @@ def copy_file(
     if dest.is_file() and _src_fingerprint == get_file_fingerprint(dest, verification_mode):
         logger.debug(f'Skipping file {dest}, already matches.')
         return dest
-    tmp = Path(dest.name + '.tmp')
+    tmp = Path(str(dest) + '.tmp')
+    tmp.parent.mkdir(exist_ok = True, parents = True)
     res = _do_copy(src, tmp, preserve_metadata = preserve_metadata, **kwargs)
-    if not result:
-        raise NotImplementedError
+    if not res:
+        err_msg = f'Failed to copy {src} to {dest}'
+        raise CopyFailedError(err_msg)
     dest_fingerprint = get_file_fingerprint(tmp, verification_mode)
     if _src_fingerprint == dest_fingerprint:
         dest.unlink(missing_ok = True)
@@ -130,7 +132,7 @@ def copy_file(
         return dest
     tmp.unlink()
     if _current_try == max_retries:
-        err_msg = f'After {max_retries} attempts, file {src} could not be copied'/
+        err_msg = f'After {max_retries} attempts, file {src} could not be copied'\
                   f' to {dest}.'
         logger.error(err_msg)
         raise CopyFailedError(err_msg)
@@ -167,25 +169,24 @@ def copy_tree(
     for root, dirs, files in Path(src).walk(on_error = _log_scandir_err):
         rel_root = root.relative_to(src)
         dirs[:] = [d for d in dirs if not _is_excluded(rel_root / d, patterns)]
-
         for name in files:
             rel_path = rel_root / name
             if _is_excluded(rel_path, patterns):
-                logger.debug(f'Skipping excluded file {str(rel_path)}')
+                logger.debug(f'Directory {src} removed')
                 continue
             src_file = root / name
             dest_file = dest / rel_path
             res = None
-            while res = None and retries < total_max_retries:
+            while not isinstance(res, Path):
                 try:
                     res = copy_file(src_file, dest_file, **kwargs)
                 except CopyFailedError:
                     failures += 1
                     if failures == stop_after_n_failures:
-                        err_msg = f'Failed to copy directory {src} to {dir}'
+                        err_msg = f'Failed to copy directory {src} to {dest}'
                         logger.error(err_msg)
                         return None
-    logger.log(f'Directory {src} copied to {dest}')
+    logger.info(f'Directory {src} copied to {dest}')
     return dest
 
 
@@ -220,7 +221,7 @@ def get_file_hash(file: str | Path, algorithm: str = 'md5') -> str:
 
 def move_file(
     src: str | Path,
-    dest: str | Path, *,
+    dest: str | Path,
     **kwargs
 )  -> Path:
     res = copy_file(src, dest, **kwargs)
@@ -242,11 +243,13 @@ def move_tree(
     res = copy_tree(src, dest, exclude = exclude, parallel = parallel,
                     stop_after_n_failures = stop_after_n_failures)
     if isinstance(res, Path) and res.is_dir():
+        rm_tree(src)
 
 
-def main():
-    print("Hello from verified-copy!")
-
-
-if __name__ == "__main__":
-    main()
+def rm_tree(src: str | Path) -> None:
+    for root, dirs, files in src.walk(top_down=False):
+        for name in files:
+            (root / name).unlink()
+        for name in dirs:
+            (root / name).rmdir()
+    logger.debug(f'Directory {src} removed')

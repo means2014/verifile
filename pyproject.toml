@@ -5,3 +5,8 @@ description = "A small package for transferring files and directories across pot
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = []
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.2",
+]
