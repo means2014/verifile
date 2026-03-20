@@ -8,6 +8,10 @@ It is designed to be simple, reliable, and fully implemented through the Python 
 - Pure Python implementation (no additional dependencies)
 
 ## Installation
+Installation via `uv` is suggested:
+```
+uv add "verifile @ git+https://github.com/means2014/verifile.git"
+```
 
 ## API 
 ### Copy File
