@@ -141,13 +141,13 @@ def copy_file(
     if always_hash_after_failure:
         verification_mode = 'hash'
         _src_fingerprint = get_file_fingerprint(src, verification_mode, _src_fingerprint)
-    return copy_file(
-        src, dest, verification_mode = verification_mode, existing_mode = existing_mode,
-        follow_symlinks = follow_symlinks, max_retries = max_retries,
-        preserve_metadata = preserve_metadata, retry_delay = retry_delay,
-        _current_try = _current_try + 1, _src_fingerprint = _src_fingerprint,
-        **kwargs
-    )
+    return copy_file(src, dest, preserve_metadata = preserve_metadata,
+                     retry_count_maximum = retry_count_maximum,
+                     retry_delay = min(retry_delay*retry_delay_backoff, retry_delay_maximum),
+                     retry_delay_backoff = retry_delay_backoff,
+                     retry_delay_maximum = retry_delay_maximum,
+                     verification_mode = verification_mode, _current_try = _current_try + 1,
+                     _src_fingerprint = _src_fingerprint)
 
 
 def copy_tree(
