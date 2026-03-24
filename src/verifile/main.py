@@ -32,11 +32,19 @@ class VerificationMode(StrEnum):
 def _do_copy(
     src: Path,
     dest: Path, *,
+    chunk_size: int = 1024*1024,
     preserve_metadata: bool = False,
     **kwargs
 ) -> bool:
     try:
-        res = src.copy(dest, preserve_metadata = preserve_metadata)
+        with (
+            src.open('rb') as frsc,
+            dest.open('wb') as fdest
+        ):
+            while chunk := fsrc.read(chunk_size):
+                fdest.write(chunk)
+        if preserve_metadata:
+            shutil.copystat(src, dest)
     except Exception as e:
         logger.exception(e)
         return False
