@@ -1,9 +1,9 @@
 [project]
 name = "verifiled"
-version = "0.1.0"
+version = "0.5.0"
 description = "A small package for transferring files and directories across potentially flaky filesystems."
 readme = "README.md"
-requires-python = ">=3.14"
+requires-python = "==3.13.*"
 dependencies = []
 
 [dependency-groups]
