@@ -2,10 +2,10 @@ import logging
 import os
 
 
-from dataclasses import dataclass
-from enum import auto
-from enum import StrEnum
+from concurrent.futures import as_completed, ThreadPoolExecutor
+from enum import auto, StrEnum
 from pathlib import Path
+from shutil import copystat
 from typing import Any
 
 
@@ -38,13 +38,13 @@ def _do_copy(
 ) -> bool:
     try:
         with (
-            src.open('rb') as frsc,
+            src.open('rb') as fsrc,
             dest.open('wb') as fdest
         ):
             while chunk := fsrc.read(chunk_size):
                 fdest.write(chunk)
         if preserve_metadata:
-            shutil.copystat(src, dest)
+            copystat(src, dest)
     except Exception as e:
         logger.exception(e)
         return False
@@ -83,6 +83,7 @@ def copy_file(
     src: str | Path,
     dest: str | Path, *,
     always_hash_after_failure: bool = True,
+    chunk_size: int = 1024*1024,
     existing_mode: ExistingBehavior = ExistingBehavior.REPLACE,
     follow_symlinks: bool = True,
     preserve_metadata: bool = False,
@@ -128,7 +129,13 @@ def copy_file(
         return dest
     tmp = Path(str(dest) + '.tmp')
     tmp.parent.mkdir(exist_ok = True, parents = True)
-    res = _do_copy(src, tmp, preserve_metadata = preserve_metadata, **kwargs)
+    res = _do_copy(
+            src,
+            tmp,
+            chunk_size = chunk_size,
+            preserve_metadata = preserve_metadata,
+            **kwargs
+    )
     if not res:
         err_msg = f'Failed to copy {src} to {dest}'
         raise CopyFailedError(err_msg)
@@ -191,7 +198,7 @@ def copy_tree(
     with ThreadPoolExecutor(max_workers = parallel) as executor:
         future_to_filename = {executor.submit(copy_file, src_file, dest_file, **kwargs):src_file\
                              for src_file, dest_file in to_copy}
-        for future in concurrent.futures.as_completed(future_to_filename):
+        for future in as_completed(future_to_filename):
             completed += 1
             print(f'\r[{completed} of {len(to_copy)} files copied]', end = '', flush = True)
             try:

@@ -23,6 +23,7 @@ copy_file(
     src: str | Path,
     dest: str | Path, *,
     always_hash_after_failure: bool = True,
+    chunk_size: int = 1024*1024,
     existing_mode: ExistingBehavior = ExistingBehavior.REPLACE,
     follow_symlinks: bool = True,
     preserve_metadata: bool = False,
@@ -37,10 +38,12 @@ copy_file(
 
 `always_hash_after_failure` -> If true, verification_mode will be upgraded to 'hash' for subsequent retries.
 
+`chunk_size` -> Size (in bytes) to copy in each chunk (default: 1MB)
+
 `existing_mode` -> Behavior when `dest` file already exists
 
   Options:
-  
+
     - 'error' -- raise Exception
     - 'replace' (default) -- replace existing
     - 'skip' -- ignore and skip
