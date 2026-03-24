@@ -154,7 +154,7 @@ def copy_tree(
     src: str | Path,
     dest: str | Path, *,
     exclude: str | Path | list[str, Path] | None = None,
-    parallel: int = min(32, (os.process_cpu_count() or 1) + 4),
+    parallel: int = 1,
     stop_after_n_failures: int = 1,
     **kwargs
 ) -> None | Path:
@@ -166,26 +166,37 @@ def copy_tree(
     dest.mkdir(exist_ok = True, parents = True)
     failures = 0
     patterns = _normalize_excludes(exclude)
+    to_copy = []
     for root, dirs, files in Path(src).walk(on_error = _log_scandir_err):
         rel_root = root.relative_to(src)
         dirs[:] = [d for d in dirs if not _is_excluded(rel_root / d, patterns)]
         for name in files:
             rel_path = rel_root / name
             if _is_excluded(rel_path, patterns):
-                logger.debug(f'Directory {src} removed')
+                logger.debug(f'Directory {src} excluded')
                 continue
             src_file = root / name
             dest_file = dest / rel_path
-            res = None
-            while not isinstance(res, Path):
-                try:
-                    res = copy_file(src_file, dest_file, **kwargs)
-                except CopyFailedError:
-                    failures += 1
-                    if failures == stop_after_n_failures:
-                        err_msg = f'Failed to copy directory {src} to {dest}'
-                        logger.error(err_msg)
-                        return None
+            to_copy.append((src_file, dest_file))
+    parallel = min(32, max(1, parallel), len(to_copy))
+    completed = 0
+    with ThreadPoolExecutor(max_workers = parallel) as executor:
+        future_to_filename = {executor.submit(copy_file, src_file, dest_file, **kwargs):src_file\
+                             for src_file, dest_file in to_copy}
+        for future in concurrent.futures.as_completed(future_to_filename):
+            completed += 1
+            print(f'\r[{completed} of {len(to_copy)} files copied]', end = '', flush = True)
+            try:
+                data = future.result()
+            except CopyFailedError as exc:
+                failures += 1
+                if failures == stop_after_n_failures:
+                    executor.shutdown(wait = False, cancel_futures = True)
+                    err_msg = f'Failed to copy directory {src} to {dest}'
+                    logger.error(err_msg)
+                    return None
+            except Exception as exc:
+                logger.exception(exc)
     logger.info(f'Directory {src} copied to {dest}')
     return dest
 
