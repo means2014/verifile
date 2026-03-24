@@ -234,14 +234,10 @@ def move_file(
 
 def move_tree(
     src: str | Path,
-    dest: str | Path, *,
-    exclude: str | Path | list[str, Path],
-    parallel: int = min(32, (os.process_cpu_count() or 1) + 4),
-    stop_after_n_failures: int = 1,
+    dest: str | Path,
     **kwargs
 ) -> Path | None:
-    res = copy_tree(src, dest, exclude = exclude, parallel = parallel,
-                    stop_after_n_failures = stop_after_n_failures)
+    res = copy_tree(src, dest, **kwargs)
     if isinstance(res, Path) and res.is_dir():
         rm_tree(src)
 
