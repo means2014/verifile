@@ -89,7 +89,7 @@ copy_tree(
     src: str | Path,
     dest: str | Path, *,
     exclude: str | Path | list[str, Path] | None = None,
-    parallel: int = min(32, (os.process_cpu_count() or 1) + 4),
+    parallel: int = 1,
     stop_after_n_failures: int = 1,
     **kwargs
 ) -> None | Path
@@ -97,7 +97,7 @@ copy_tree(
 
 `exclude` -> Provide a list of strings or paths, relative to `src`, which will be omitted.
 
-`parallel` -> (Future feature)
+`parallel` -> Number of files to copy concurrently.
 
 `stop_after_n_failures` -> Number of failed file copies after which to abort.
 
