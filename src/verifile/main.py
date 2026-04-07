@@ -1,10 +1,11 @@
 import logging
 import os
+import time
 
 
 from concurrent.futures import as_completed, ThreadPoolExecutor
 from enum import auto, StrEnum
-from hashlib import get_file_hash
+from hashlib import file_digest
 from pathlib import Path
 from shutil import copystat
 from typing import Any
@@ -242,7 +243,7 @@ def get_file_fingerprint(
 
 def get_file_hash(file: str | Path, algorithm: str = 'md5') -> str:
     with open(Path(file), 'rb') as f:
-        digest = hashlib.file_digest(f, algorithm)
+        digest = file_digest(f, algorithm)
     return digest.hexdigest()
 
 
