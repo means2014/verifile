@@ -118,7 +118,7 @@ def copy_file(
             case ExistingBehavior.SKIP:
                 return None
             case _:
-                err_msg = f'Unrecognized existing_mode: {mode}'
+                err_msg = f'Unrecognized existing_mode: {existing_mode}'
                 raise ValueError(err_msg)
     if not follow_symlinks and src.is_symlink():
         dest.unlink(missing_ok = True)
@@ -268,6 +268,7 @@ def move_tree(
     res = copy_tree(src, dest, **kwargs)
     if isinstance(res, Path) and res.is_dir():
         rm_tree(src)
+        return res
 
 
 def rm_tree(src: str | Path) -> None:
