@@ -4,6 +4,7 @@ import os
 
 from concurrent.futures import as_completed, ThreadPoolExecutor
 from enum import auto, StrEnum
+from hashlib import get_file_hash
 from pathlib import Path
 from shutil import copystat
 from typing import Any
@@ -62,7 +63,7 @@ def _is_excluded(rel_path: Path, patterns: list[str]) -> bool:
 
 
 def _log_scandir_err(err: OSError) -> None:
-    logger.Exception(err)
+    logger.exception(err)
 
 
 def _normalize_excludes(exclude: str | Path | list[str | Path] | None) -> list[str]:
@@ -101,11 +102,11 @@ def copy_file(
     if not src.is_file():
         raise FileNotFoundError(f'Source file {str(src)} not found.')
     if verification_mode == VerificationMode.METADATA and not preserve_metadata:
-        wrn_msg = 'Cannot check metadata if not preserved.'\
+        warn_msg = 'Cannot check metadata if not preserved.'\
                   f'\n\t{verification_mode = }'\
                   f'\n\t{preserve_metadata = }'\
                   '\nReverting preserve_metadata to size_only.\n'
-        logger.warning()
+        logger.warning(warn_msg)
     if dest.is_file():
         match existing_mode:
             case ExistingBehavior.ERROR:
@@ -146,15 +147,15 @@ def copy_file(
         logger.debug(f'File {src} copied to {dest}.')
         return dest
     tmp.unlink()
-    if _current_try == max_retries:
-        err_msg = f'After {max_retries} attempts, file {src} could not be copied'\
+    if _current_try == retry_count_maximum:
+        err_msg = f'After {retry_count_maximum} attempts, file {src} could not be copied'\
                   f' to {dest}.'
         logger.error(err_msg)
         raise CopyFailedError(err_msg)
     time.sleep(retry_delay)
     # upgrade verification_mode to hash on failure
     if always_hash_after_failure:
-        verification_mode = 'hash'
+        verification_mode = VerificationMode.HASH
         _src_fingerprint = get_file_fingerprint(src, verification_mode, _src_fingerprint)
     return copy_file(src, dest, preserve_metadata = preserve_metadata,
                      retry_count_maximum = retry_count_maximum,
@@ -249,7 +250,7 @@ def move_file(
     src: str | Path,
     dest: str | Path,
     **kwargs
-)  -> Path:
+)  -> Path | None:
     res = copy_file(src, dest, **kwargs)
     if isinstance(res, Path) and res.is_file():
         src.unlink()
