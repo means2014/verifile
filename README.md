@@ -1,6 +1,6 @@
 # Migrated to codeberg
 
-This repository has been migrated to codeberg, and will not be maintained on Github.
+This repository has been migrated to [codeberg](https://codeberg.org/cmeans/verifile), and will not be maintained on Github.
 
 # Verifile
 `verifile` is a Python utility, inspired by rsync, for transferring files and directories, verifying that each file is accurately copied.
