@@ -1,3 +1,7 @@
+# Migrated to codeberg
+
+This repository has been migrated to codeberg, and will not be maintained on Github.
+
 # Verifile
 `verifile` is a Python utility, inspired by rsync, for transferring files and directories, verifying that each file is accurately copied.
 It is designed to be simple, reliable, and fully implemented through the Python standard library.
